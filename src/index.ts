@@ -21,13 +21,13 @@ const users: User[] = [
         id: 1,
         name: 'John Doe',
         email: 'john@example.com',
-        password: 'password123'
+        password: 'password12czxc3'
     },
     {
         id: 2,
         name: 'Jane Smith',
         email: 'jane@example.com',
-        password: 'password456'
+        password: 'password456ddd'
     }
 ];
 
