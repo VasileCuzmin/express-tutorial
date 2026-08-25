@@ -29,7 +29,7 @@ Install the runtime dependencies and TypeScript development tools:
 
 ```bash
 npm install express dotenv
-npm install -D typescript tsx @types/express @types/node
+npm install -D typescript tsx nodemon @types/express @types/node
 ```
 
 Create the source directory and a TypeScript configuration file:
@@ -43,6 +43,7 @@ Add scripts for development, compiling, and running the compiled application:
 
 ```bash
 npm pkg set scripts.dev="tsx watch src/index.ts"
+npm pkg set scripts.start:dev="nodemon --watch src --ext ts --exec tsx src/index.ts"
 npm pkg set scripts.build="tsc"
 npm pkg set scripts.start="node dist/index.js"
 ```
@@ -88,6 +89,101 @@ From the project root, install the dependencies declared in `package.json`:
 npm install
 ```
 
+## npm dependency basics
+
+`package.json` records the packages the project needs, while `package-lock.json` records the exact resolved versions installed for reproducible installs. Commit both files, but do not commit `node_modules`; npm recreates that directory from the package files.
+
+### Dependencies and dev dependencies
+
+Packages under `dependencies` are needed when the application runs in production. This project lists `express` and `dotenv` there because the compiled API imports them at runtime.
+
+Packages under `devDependencies` are only needed to develop, build, test, or type-check the project. This includes `typescript`, `tsx`, `nodemon`, and the `@types/*` packages. A normal `npm install` installs both groups. Production deployments can skip development tools with:
+
+```bash
+npm install --omit=dev
+```
+
+Use these commands to add or remove packages:
+
+```bash
+# Add a runtime dependency.
+npm install express
+
+# Add a development-only dependency. -D is short for --save-dev.
+npm install -D nodemon
+
+# Install a specific version.
+npm install express@5.2.1
+
+# Remove a dependency and update package.json and package-lock.json.
+npm uninstall nodemon
+```
+
+### Version ranges
+
+Package versions use semantic versioning in the form `major.minor.patch`. In `"express": "^5.2.1"`, the caret (`^`) permits compatible updates from `5.2.1` up to, but not including, `6.0.0`. It can therefore accept patch releases, such as `5.2.2`, and minor releases, such as `5.3.0`, while avoiding a new major version that may contain breaking changes.
+
+`npm install` follows the exact versions recorded in `package-lock.json` when that file is present. To intentionally update packages within their allowed ranges, run:
+
+```bash
+npm update
+```
+
+Use `npm outdated` to see installed, wanted, and latest versions before updating. A version without a prefix, such as `"express": "5.2.1"`, pins that exact version. A tilde range, `~5.2.1`, permits patch updates only, from `5.2.1` up to, but not including, `5.3.0`.
+
+### Update compatible packages
+
+Use `npm update` for routine dependency maintenance when you want the newest patch and minor versions already allowed by the ranges in `package.json`. For example, `"express": "^5.2.1"` can update to a newer `5.x.x` version, but not to `6.0.0`. npm records the resolved update in `package-lock.json`; the version range in `package.json` usually does not need to change.
+
+Check available updates, apply compatible updates, then verify the application:
+
+```bash
+npm outdated
+npm update
+npm run build
+```
+
+To update one package instead of every compatible dependency, provide its name:
+
+```bash
+npm update express
+```
+
+Use `npm update` after reviewing the `Wanted` versions from `npm outdated`, for routine bug and compatible security fixes, or in a dedicated dependency-maintenance change. Review and commit the resulting `package-lock.json` update after the build and tests pass.
+
+`npm update` does not adopt a new major version. Upgrade a major version intentionally with `npm install` so `package.json` changes, then review the package release notes and test for breaking changes:
+
+```bash
+npm install express@6
+```
+
+### Clean unused packages with npm prune
+
+`npm prune` removes extraneous packages from `node_modules`: packages that are installed locally but are no longer declared in `package.json` or required by a declared dependency. It is useful after switching branches or manually changing dependency files. It changes `node_modules`, not `package.json`.
+
+Preview the packages that would be removed before making changes:
+
+```bash
+npm prune --dry-run
+```
+
+Remove the unused packages:
+
+```bash
+npm prune
+```
+
+For a production deployment, remove development dependencies after the application has been built:
+
+```bash
+npm ci
+npm run build
+npm prune --omit=dev
+node dist/index.js
+```
+
+`npm ci` installs the exact dependency versions from `package-lock.json`. The `--omit=dev` option removes development tools such as `typescript`, `tsx`, and `nodemon`, while retaining runtime packages such as `express` and `dotenv`.
+
 ## Run in development
 
 The development server uses `tsx` to execute TypeScript directly and restart when files change:
@@ -97,6 +193,30 @@ npm run dev
 ```
 
 The API listens on `http://localhost:3000` by default.
+
+## Use nodemon in development
+
+`nodemon` monitors files for changes and restarts a command when a watched file changes. It is useful when you want to control which files trigger restarts or use a command other than `tsx watch`.
+
+Install it as a development dependency:
+
+```bash
+npm install -D nodemon
+```
+
+Configure an npm script that watches TypeScript files in `src` and runs the application with `tsx`:
+
+```bash
+npm pkg set scripts.start:dev="nodemon --watch src --ext ts --exec tsx src/index.ts"
+```
+
+Run the nodemon-based development server:
+
+```bash
+npm run start:dev
+```
+
+The `--watch src` option limits watching to source files, `--ext ts` restarts only for TypeScript changes, and `--exec tsx src/index.ts` tells nodemon how to run the TypeScript entry point. Use either `npm run dev` or `npm run start:dev`; both restart the API after source changes.
 
 ## Configure the port
 
@@ -185,5 +305,5 @@ curl -X POST http://localhost:3000/api/users \
 | --- | --- |
 | `npm run dev` | Runs the TypeScript server in watch mode using `tsx`. |
 | `npm run build` | Compiles TypeScript from `src` into `dist`. |
-| `npm run start:dev` | Starts `nodemon` with `index.js`; this script requires a root-level `index.js` and is not used by the current TypeScript source layout. |
+| `npm run start:dev` | Watches `src` with `nodemon` and runs `src/index.ts` through `tsx`. |
 | `npm start` | Runs the package start script. For the current build layout, use `node dist/index.js` after `npm run build`. |
