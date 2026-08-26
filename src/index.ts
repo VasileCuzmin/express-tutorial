@@ -2,6 +2,8 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import dotenv from 'dotenv';
 import { type User, type Product, type Query } from './@types/types.js';
 import { errorHandlingMiddleware, loggingMiddleware, findUserByUserId } from './middlewares.js';
+import { query, validationResult, body, matchedData, checkSchema } from "express-validator";
+import { userValidationSchema } from "./utils/validationSchemas.js";
 
 dotenv.config();
 
@@ -57,24 +59,32 @@ app.get('/', (req: Request, res: Response, next: NextFunction) => {
     // middleware does not call next()
 });
 
+//we can have a schema for validating the request body using checkSchema and userValidationSchema
+app.get('/api/users', query("filter").notEmpty()
+    .withMessage("Filter is required")
+    .isString().withMessage("Filter must be a string")
+    , query("value").notEmpty().withMessage("Value is required").isString().withMessage("Value must be a string"),
+    (req: Request, res: Response) => {
 
-app.get('/api/users', (req: Request, res: Response) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-    console.log('Query parameters:', req.query);
-    const { filter, value } = req.query;
-    if (!filter && !value) {
+        const { filter, value } = req.query;
+        if (!filter && !value) {
+            return res.status(200).json(users);
+        }
+
+        if (filter && value) {
+            const filteredUsers = users.filter((user) => {
+                const userValue = (user as any)[filter as string];
+                return userValue && userValue.toString().toLowerCase().includes((value as string).toLowerCase());
+            });
+            return res.status(200).json(filteredUsers);
+        }
         return res.status(200).json(users);
-    }
-
-    if (filter && value) {
-        const filteredUsers = users.filter((user) => {
-            const userValue = (user as any)[filter as string];
-            return userValue && userValue.toString().toLowerCase().includes((value as string).toLowerCase());
-        });
-        return res.status(200).json(filteredUsers);
-    }
-    return res.status(200).json(users);
-});
+    });
 
 //loggingMiddleware is applied only to this route
 app.get('/api/products', loggingMiddleware, (req: Request, res: Response) => {
@@ -94,11 +104,20 @@ app.get('/api/users/:userId', (req: Request, res: Response) => {
 });
 
 //loggingMiddleware is applied only to this route
-app.post('/api/users', loggingMiddleware, (req: Request, res: Response) => {
-    const newUser: User = { id: (users[users.length - 1]?.id ?? 0) + 1, ...req.body };
-    users.push(newUser);
-    return res.status(201).json({ message: "User created successfully", newUser });
-});
+//checkSchema is used to validate the request body against the userValidationSchema
+app.post('/api/users', loggingMiddleware,
+    checkSchema(userValidationSchema),
+    (req: Request, res: Response) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const data = matchedData<Pick<User, "name" | "email" | "password">>(req, { locations: ['body'] });
+        const newUser: User = { id: (users[users.length - 1]?.id ?? 0) + 1, ...data };
+        users.push(newUser);
+        return res.status(201).json({ message: "User created successfully", newUser });
+    });
 
 
 app.use(errorHandlingMiddleware);//global error handling middleware that is applied 
