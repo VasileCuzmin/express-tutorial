@@ -1,7 +1,7 @@
-import express, { type Express, type Request, type Response } from 'express';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import dotenv from 'dotenv';
-import { type User, type Product, type Query } from './types.js';
-import { errorHandlingMiddleware, loggingMiddleware } from './middlewares.js';
+import { type User, type Product, type Query } from './@types/types.js';
+import { errorHandlingMiddleware, loggingMiddleware, findUserByUserId } from './middlewares.js';
 
 dotenv.config();
 
@@ -48,7 +48,7 @@ const products: Product[] = [
     }
 ];
 
-app.get('/', (req: Request, res: Response, next: () => void) => {
+app.get('/', (req: Request, res: Response, next: NextFunction) => {
     // This is a middleware function that logs the request method and URL
     //it does not call the next so the next function will not be called and the request
     //  will not proceed to the next middleware or route handler
@@ -105,51 +105,31 @@ app.use(errorHandlingMiddleware);//global error handling middleware that is appl
 //to all routes and middleware after it is defined. 
 // It catches any errors that occur in the application and sends a 500 Internal Server Error response to the client.
 
-app.put('/api/users/:userId', (req: Request, res: Response) => {
-    const { userId } = req.params;
+app.put('/api/users/:userId', findUserByUserId, (req: Request, res: Response) => {
     const { name, email, password } = req.body;
-    const parsedId = Number(userId);
-    if (isNaN(parsedId)) {
-        return res.status(400).json({ error: 'Invalid user ID' });
-    }
+    const user = users.find(u => u.id === req.userId);
 
-    const userIndex = users.findIndex(u => u.id === parsedId);
-    if (userIndex === -1) {
+    if (!user) {
         return res.status(404).json({ error: 'User not found' });
     }
 
-    const user = users[userIndex] as User;
     const updatedUser: User = { ...user, name, email, password };
-    users[userIndex] = updatedUser;
     return res.status(200).json({ message: "User updated successfully", updatedUser });
 });
 
-app.patch('/api/users/:userId', (req: Request, res: Response) => {
-    const { userId } = req.params;
-    const parsedId = Number(userId);
-    if (isNaN(parsedId)) {
-        return res.status(400).json({ error: 'Invalid user ID' });
-    }
-
-
-    const userIndex = users.findIndex(u => u.id === parsedId);
-    if (userIndex === -1) {
+app.patch('/api/users/:userId', findUserByUserId, (req: Request, res: Response) => {
+    let user = users.find(u => u.id === req.userId);
+    if (!user) {
         return res.status(404).json({ error: 'User not found' });
     }
 
-    users[userIndex] = { ...users[userIndex], ...req.body };
-    return res.status(200).json({ message: "User updated successfully", updatedUser: users[userIndex] });
+    user = { ...user, ...req.body };
+    return res.status(200).json({ message: "User updated successfully", updatedUser: user });
 });
 
 
-app.delete('/api/users/:userId', (req: Request, res: Response) => {
-    const { userId } = req.params;
-    const parsedId = Number(userId);
-    if (isNaN(parsedId)) {
-        return res.status(400).json({ error: 'Invalid user ID' });
-    }
-
-    const user = users.find(u => u.id === parsedId);
+app.delete('/api/users/:userId', findUserByUserId, (req: Request, res: Response) => {
+    const user = users.find(u => u.id === req.userId);
     if (!user) {
         return res.status(404).json({ error: 'User not found' });
     }
