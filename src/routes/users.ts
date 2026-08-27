@@ -7,7 +7,7 @@ import { userValidationSchema } from "../utils/validationSchemas.js";
 
 const router = Router();
 
-const users: User[] = [
+export const users: User[] = [
     {
         id: 1,
         name: 'John Doe',
@@ -19,6 +19,12 @@ const users: User[] = [
         name: 'Jane Smith',
         email: 'jane@example.com',
         password: 'password456dvvvvdd'
+    },
+    {
+        id: 3,
+        name: 'Alice Johnson',
+        email: 'alice@example.com',
+        password: 'password789'
     }
 ];
 
@@ -27,6 +33,14 @@ router.get('/api/users', query("filter").notEmpty()
     .isString().withMessage("Filter must be a string")
     , query("value").notEmpty().withMessage("Value is required").isString().withMessage("Value must be a string"),
     (req: Request, res: Response) => {
+        req.sessionStore.get(req.sessionID, (err, session) => {
+            if (err) {
+                console.error('Error retrieving session:', err);
+                return res.status(500).json({ error: 'Internal Server Error' });
+            }
+
+            console.log('Session data:', session);
+        });
 
         const errors = validationResult(req);
         if (!errors.isEmpty()) {

@@ -3,6 +3,10 @@ import dotenv from 'dotenv';
 import { errorHandlingMiddleware, loggingMiddleware } from './middlewares.js';
 import cookieParser from 'cookie-parser';
 import routes from './routes/index.js';
+import session from 'express-session';
+
+import { users } from './routes/users.js';
+
 dotenv.config();
 
 const app: Express = express();
@@ -14,6 +18,16 @@ app.use(errorHandlingMiddleware);//global middleware for handling errors
 app.use(loggingMiddleware);//global middleware for logging requests
 
 app.use(cookieParser());//global middleware for parsing cookies
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'default_secret',
+    saveUninitialized: false,
+    resave: false,
+    cookie: {
+        maxAge: 600000, // 10 minutes
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    }
+}));//global middleware for handling sessions
 app.use(routes);//use the routes defined in src/routes/index.ts
 
 // app.get('/', (req: Request, res: Response, next: NextFunction) => {
@@ -26,8 +40,23 @@ app.use(routes);//use the routes defined in src/routes/index.ts
 // });
 
 app.get('/', (req: Request, res: Response, next: NextFunction) => {
+    console.log(req.sessionID); // Log the session ID
+    req.session.visited = true; // Set a session variable
     res.cookie('hello', 'world', { maxAge: 600000, httpOnly: true });
     res.send('Hello, World!');
+});
+
+
+app.post('/api/auth', (req: Request, res: Response) => {
+    const { body } = req;
+    const { name, password } = body;
+    const user = users.find(u => u.name === name && u.password === password);
+    if (!user || user.password !== password) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    req.session.user = user;
+    return res.status(200).json({ message: 'Authenticated', user });
 });
 
 
