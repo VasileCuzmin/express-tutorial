@@ -22,9 +22,21 @@ const products: Product[] = [
     }
 ];
 
+//req.cookies vs req.headers.cookie
+//req.cookies is an object that contains the cookies sent by the client in the request. 
+//It is populated by the cookie-parser middleware, which parses the Cookie header and populates
+//  req.cookies with an object containing the cookie names and values.
+
 //loggingMiddleware is applied only to this route
 router.get('/api/products', loggingMiddleware, (req: Request, res: Response) => {
-    return res.status(200).json(products);
+    console.log(req.cookies); // Log the cookies sent by the client
+    console.log(req.headers.cookie); // Log the raw cookie header
+
+    if (req.cookies.hello && req.cookies.hello === 'world') {
+        return res.status(200).json(products);
+    } else {
+        return res.status(403).json({ error: 'Forbidden: Missing or invalid cookie' });
+    }
 });
 
 export default router;
