@@ -5,9 +5,13 @@ export const loggingMiddleware = (req: Request, res: Response, next: NextFunctio
     next();
 }
 
-export const errorHandlingMiddleware = (err: Error, req: Request, res: Response, next: NextFunction) => {
-    console.error(err.stack);
-    res.status(500).json({ error: 'Internal Server Error' });
+export const errorHandlingMiddleware = (req: Request, res: Response, next: NextFunction) => {
+    try {
+        next();
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 }
 
 export const findUserByUserId = (req: Request, res: Response, next: NextFunction) => {
