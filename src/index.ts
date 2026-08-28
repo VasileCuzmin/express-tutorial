@@ -4,6 +4,8 @@ import { errorHandlingMiddleware, loggingMiddleware } from './middlewares.js';
 import cookieParser from 'cookie-parser';
 import routes from './routes/index.js';
 import session from 'express-session';
+import passport from 'passport';
+import './passport-strategies/local-strategy.js';// import the local strategy to initialize it
 
 import { users } from './routes/users.js';
 
@@ -28,6 +30,10 @@ app.use(session({
         secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
     }
 }));//global middleware for handling sessions
+
+app.use(passport.initialize());//global middleware for initializing passport
+app.use(passport.session());//global middleware for handling passport sessions
+
 app.use(routes);//use the routes defined in src/routes/index.ts
 
 // app.get('/', (req: Request, res: Response, next: NextFunction) => {
@@ -47,16 +53,38 @@ app.get('/', (req: Request, res: Response, next: NextFunction) => {
 });
 
 
-app.post('/api/auth', (req: Request, res: Response) => {
-    const { body } = req;
-    const { name, password } = body;
-    const user = users.find(u => u.name === name && u.password === password);
-    if (!user || user.password !== password) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-    }
+// app.post('/api/auth', (req: Request, res: Response) => {
+//     const { body } = req;
+//     const { name, password } = body;
+//     const user = users.find(u => u.name === name && u.password === password);
+//     if (!user || user.password !== password) {
+//         return res.status(401).json({ error: 'Invalid credentials' });
+//     }
 
-    req.session.user = user;
-    return res.status(200).json({ message: 'Authenticated', user });
+//     req.session.user = user;
+//     return res.status(200).json({ message: 'Authenticated', user });
+// });
+
+app.post('/api/auth', passport.authenticate('local'), (req: Request, res: Response) => {
+    res.status(200).json({ message: 'Authenticated', user: req.user });
+})
+
+app.get('/api/auth/status', (req: Request, res: Response) => {
+    console.log('Checking authentication status for user:', req.user);
+    if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+    return res.status(200).json({ authenticated: true, user: req.user });
+});
+
+app.post('/api/auth/logout', (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+    req.logout((err) => {
+        if (err) { return res.status(500).json({ message: 'Logout failed', error: err }); }
+        res.status(200).json({ message: 'Logged out' });
+    });
 });
 
 
