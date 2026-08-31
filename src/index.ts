@@ -6,13 +6,19 @@ import routes from './routes/index.js';
 import session from 'express-session';
 import passport from 'passport';
 import './passport-strategies/local-strategy.js';// import the local strategy to initialize it
-
+import mongoose from 'mongoose';
 import { users } from './routes/users.js';
 
 dotenv.config();
 
 const app: Express = express();
 const PORT: number = Number(process.env.PORT) || 3000;
+
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/express-tutorial-db').then(() => {
+    console.log('Connected to MongoDB');
+}).catch((err) => {
+    console.error('Error connecting to MongoDB:', err);
+});
 
 app.use(express.json());
 app.use(errorHandlingMiddleware);//global middleware for handling errors

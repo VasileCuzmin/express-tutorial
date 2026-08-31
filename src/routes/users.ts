@@ -4,6 +4,7 @@ import { type User } from '../@types/types.js';
 import { query, validationResult, body, matchedData, checkSchema } from "express-validator";
 import { errorHandlingMiddleware, findUserByUserId, loggingMiddleware } from "../middlewares.js";
 import { userValidationSchema } from "../utils/validationSchemas.js";
+import { UserModel } from "../mongoose/schemas/user.js";
 
 const router = Router();
 
@@ -78,19 +79,29 @@ router.get('/api/users/:userId', (req: Request, res: Response) => {
 
 //loggingMiddleware is applied only to this route
 //checkSchema is used to validate the request body against the userValidationSchema
-router.post('/api/users', loggingMiddleware,
-    checkSchema(userValidationSchema),
-    (req: Request, res: Response) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({ errors: errors.array() });
-        }
+// router.post('/api/users', loggingMiddleware,
+//     checkSchema(userValidationSchema),
+//     (req: Request, res: Response) => {
+//         const errors = validationResult(req);
+//         if (!errors.isEmpty()) {
+//             return res.status(400).json({ errors: errors.array() });
+//         }
 
-        const data = matchedData<Pick<User, "name" | "email" | "password">>(req, { locations: ['body'] });
-        const newUser: User = { id: (users[users.length - 1]?.id ?? 0) + 1, ...data };
-        users.push(newUser);
-        return res.status(201).json({ message: "User created successfully", newUser });
-    });
+//         const data = matchedData<Pick<User, "name" | "email" | "password">>(req, { locations: ['body'] });
+//         const newUser: User = { id: (users[users.length - 1]?.id ?? 0) + 1, ...data };
+//         users.push(newUser);
+//         return res.status(201).json({ message: "User created successfully", newUser });
+//     });
+
+router.post('/api/users', async (req: Request, res: Response) => {
+    const newUser = new UserModel(req.body);
+    try {
+        const savedUser = await newUser.save();
+        return res.status(201).json({ message: "User created successfully", newUser: savedUser });
+    } catch (error) {
+        return res.status(500).json({ error: 'Failed to create user', details: error });
+    }
+});
 
 
 router.patch('/api/users/:userId', findUserByUserId, (req: Request, res: Response) => {
