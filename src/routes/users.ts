@@ -93,8 +93,15 @@ router.get('/api/users/:userId', (req: Request, res: Response) => {
 //         return res.status(201).json({ message: "User created successfully", newUser });
 //     });
 
-router.post('/api/users', async (req: Request, res: Response) => {
-    const newUser = new UserModel(req.body);
+router.post('/api/users', checkSchema(userValidationSchema), async (req: Request, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    const data = matchedData<Pick<User, "name" | "email" | "password">>(req, { locations: ['body'] });
+
+    const newUser = new UserModel(data);
     try {
         const savedUser = await newUser.save();
         return res.status(201).json({ message: "User created successfully", newUser: savedUser });
